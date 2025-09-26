@@ -1,0 +1,208 @@
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  schemas  = ["cdt"]
+}
+
+enum TipoEntidadFinanciera {
+  BANCO
+  COOPERATIVA
+  CORPORACION
+  SIMULADA
+}
+
+enum CdtModalidadPago {
+  VENCIMIENTO
+  PERIODICA
+  ANTICIPADA
+}
+
+enum CdtSolicitudEstado {
+  BORRADOR
+  PENDIENTE_DOCS
+  EN_VALIDACION
+  ENVIADA
+  APROBADA
+  RECHAZADA
+  CANCELADA
+}
+
+enum CdtContratoEstado {
+  PENDIENTE_DESEMBOLSO
+  ACTIVO
+  VENCIDO
+  CANCELADO
+  RENOVADO
+}
+
+enum CdtMovimientoTipo {
+  DESEMBOLSO
+  CAPITALIZACION
+  INTERES
+  RETENCION
+  CANCELACION
+}
+
+enum IntegracionEstado {
+  PENDIENTE
+  ENVIADO
+  ERROR
+}
+
+model EntidadFinanciera {
+  id               String   @id @default(uuid())
+  nombre           String
+  tipoEntidad      TipoEntidadFinanciera @map("tipo_entidad")
+  codigoSuper      String?  @map("codigo_super")
+  pais             String
+  canalIntegracion String?  @map("canal_integracion")
+  creadoEn         DateTime @default(now()) @map("creado_en")
+  actualizadoEn    DateTime @updatedAt @map("actualizado_en")
+
+  ofertas          CdtOferta[]
+
+  @@unique([nombre, pais])
+  @@map("entidad_financiera")
+  @@schema("cdt")
+}
+
+model CdtOferta {
+  id               String           @id @default(uuid())
+  entidadId        String           @map("entidad_id")
+  codigo           String
+  plazoDias        Int              @map("plazo_dias")
+  modalidadPago    CdtModalidadPago @map("modalidad_pago")
+  tasaNominal      Decimal          @map("tasa_nominal")
+  tasaEfectiva     Decimal          @map("tasa_efectiva")
+  montoMinimo      Decimal          @map("monto_minimo")
+  montoMaximo      Decimal?         @map("monto_maximo")
+  moneda           String           @default("COP")
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  entidad          EntidadFinanciera @relation(fields: [entidadId], references: [id])
+  solicitudes      CdtSolicitud[]
+
+  @@unique([entidadId, codigo])
+  @@map("cdt_oferta")
+  @@schema("cdt")
+}
+
+model CdtSolicitud {
+  id                String              @id @default(uuid())
+  usuarioId         String              @map("usuario_id")
+  ofertaId          String              @map("oferta_id")
+  monto             Decimal
+  plazoSolicitado   Int                 @map("plazo_solicitado")
+  estado            CdtSolicitudEstado
+  fechaSolicitud    DateTime            @map("fecha_solicitud") @default(now())
+  snapshotUsuarioId String?             @map("snapshot_usuario_id")
+  consentimientoId  String?             @map("consentimiento_id")
+  documentoFormularioId String?         @map("documento_formulario_id")
+  notaInterna       String?             @map("nota_interna")
+  fechaDecision     DateTime?           @map("fecha_decision")
+  razonRechazo      String?             @map("razon_rechazo")
+
+  oferta            CdtOferta           @relation(fields: [ofertaId], references: [id])
+  contrato          CdtContrato?
+  documentos        CdtSolicitudDocumento[]
+
+  @@index([usuarioId], map: "cdt_solicitud_usuario_id_idx")
+  @@map("cdt_solicitud")
+  @@schema("cdt")
+}
+
+model CdtSolicitudDocumento {
+  id                 String   @id @default(uuid())
+  solicitudId        String   @map("solicitud_id")
+  documentoSoporteId String   @map("documento_soporte_id")
+  tipo               String
+  validado           Boolean  @default(false)
+  creadoEn           DateTime @default(now()) @map("creado_en")
+
+  solicitud          CdtSolicitud @relation(fields: [solicitudId], references: [id], onDelete: Cascade)
+
+  @@unique([solicitudId, documentoSoporteId], map: "cdt_solicitud_documento_unique")
+  @@map("cdt_solicitud_documento")
+  @@schema("cdt")
+}
+
+model CdtContrato {
+  id                 String            @id @default(uuid())
+  solicitudId        String            @unique @map("solicitud_id")
+  numeroCertificado  String            @map("numero_certificado")
+  fechaApertura      DateTime          @map("fecha_apertura")
+  fechaVencimiento   DateTime          @map("fecha_vencimiento")
+  tasaNegociada      Decimal           @map("tasa_negociada")
+  capital            Decimal
+  soporteDepositoId  String?           @map("soporte_deposito_id")
+  estado             CdtContratoEstado
+  creadoEn           DateTime          @default(now()) @map("creado_en")
+  actualizadoEn      DateTime          @updatedAt @map("actualizado_en")
+
+  solicitud          CdtSolicitud      @relation(fields: [solicitudId], references: [id], onDelete: Cascade)
+  movimientos        CdtMovimiento[]
+  renovaciones       CdtRenovacion[]
+  eventosIntegracion IntegracionEvento[]
+
+  @@map("cdt_contrato")
+  @@schema("cdt")
+}
+
+model CdtMovimiento {
+  id                 String            @id @default(uuid())
+  contratoId         String            @map("contrato_id")
+  tipo               CdtMovimientoTipo
+  valor              Decimal
+  fechaValor         DateTime          @map("fecha_valor")
+  referencia         String?           @map("referencia")
+  documentoSoporteId String?           @map("documento_soporte_id")
+  saldoPosterior     Decimal           @map("saldo_posterior")
+  descripcion        String?
+  creadoEn           DateTime          @default(now()) @map("creado_en")
+
+  contrato           CdtContrato       @relation(fields: [contratoId], references: [id], onDelete: Cascade)
+
+  @@index([contratoId], map: "cdt_movimiento_contrato_id_idx")
+  @@map("cdt_movimiento")
+  @@schema("cdt")
+}
+
+model CdtRenovacion {
+  id              String   @id @default(uuid())
+  contratoId      String   @map("contrato_id")
+  fechaPropuesta  DateTime @map("fecha_propuesta")
+  nuevoPlazo      Int      @map("nuevo_plazo")
+  nuevaTasa       Decimal  @map("nueva_tasa")
+  estado          String
+  creadoEn        DateTime @default(now()) @map("creado_en")
+
+  contrato        CdtContrato @relation(fields: [contratoId], references: [id], onDelete: Cascade)
+
+  @@index([contratoId], map: "cdt_renovacion_contrato_id_idx")
+  @@map("cdt_renovacion")
+  @@schema("cdt")
+}
+
+model IntegracionEvento {
+  id             String           @id @default(uuid())
+  objetoId       String           @map("objeto_id")
+  objetoTipo     String           @map("objeto_tipo")
+  tipoEvento     String           @map("tipo_evento")
+  payload        Json
+  estadoEnvio    IntegracionEstado @map("estado_envio")
+  enviadoEn      DateTime?        @map("enviado_en")
+  reintentos     Int              @default(0)
+  ultimoError    String?          @map("ultimo_error")
+  creadoEn       DateTime         @default(now()) @map("creado_en")
+  actualizadoEn  DateTime         @updatedAt @map("actualizado_en")
+
+  @@index([estadoEnvio], map: "integracion_evento_estado_envio_idx")
+  @@map("integracion_evento")
+  @@schema("cdt")
+}
