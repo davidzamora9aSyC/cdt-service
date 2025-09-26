@@ -12,7 +12,8 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   }
 
   async enableShutdownHooks(app: INestApplication): Promise<void> {
-    this.$on('beforeExit', async () => {
+    // Prisma's type definitions in some environments don't expose the 'beforeExit' event
+    (this.$on as unknown as (event: string, callback: () => Promise<void>) => void)('beforeExit', async () => {
       await app.close();
     });
   }

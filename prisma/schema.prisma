@@ -14,12 +14,16 @@ enum TipoEntidadFinanciera {
   COOPERATIVA
   CORPORACION
   SIMULADA
+
+  @@schema("cdt")
 }
 
 enum CdtModalidadPago {
   VENCIMIENTO
   PERIODICA
   ANTICIPADA
+
+  @@schema("cdt")
 }
 
 enum CdtSolicitudEstado {
@@ -30,6 +34,8 @@ enum CdtSolicitudEstado {
   APROBADA
   RECHAZADA
   CANCELADA
+
+  @@schema("cdt")
 }
 
 enum CdtContratoEstado {
@@ -38,6 +44,8 @@ enum CdtContratoEstado {
   VENCIDO
   CANCELADO
   RENOVADO
+
+  @@schema("cdt")
 }
 
 enum CdtMovimientoTipo {
@@ -46,12 +54,16 @@ enum CdtMovimientoTipo {
   INTERES
   RETENCION
   CANCELACION
+
+  @@schema("cdt")
 }
 
 enum IntegracionEstado {
   PENDIENTE
   ENVIADO
   ERROR
+
+  @@schema("cdt")
 }
 
 model EntidadFinanciera {
@@ -148,7 +160,6 @@ model CdtContrato {
   solicitud          CdtSolicitud      @relation(fields: [solicitudId], references: [id], onDelete: Cascade)
   movimientos        CdtMovimiento[]
   renovaciones       CdtRenovacion[]
-  eventosIntegracion IntegracionEvento[]
 
   @@map("cdt_contrato")
   @@schema("cdt")
